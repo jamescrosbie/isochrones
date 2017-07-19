@@ -4,15 +4,16 @@ import simplejson
 from urllib.parse import urlparse
 from urllib.request import Request as urlrequest
 from urllib.request import build_opener
-from math import cos, sin, radians, degrees, asin, atan2
+from math import pi, cos, sin, radians, degrees, asin, atan2
 
 
 #set constants
-home_string = '25+Wellfield+Road+Huddersfield'
-config_path ='/home/james/'
+home_string = ['HD1+2PQ', 'LS2+7UA']
+config_path ='/home/'
+output_path = ''
 no_of_angles = 12  # best multipal of 12
 travel_methods = ['driving','bicycling','transit','walking']
-travel_method = travel_methods[2]
+travel_method = travel_methods[0]
 travel_time_limit = 20 # mins
 tolerance = 5 #mins
 
@@ -84,6 +85,15 @@ def select_destination(origin='', angle=30, radius=20):
     return [lat2, lng2]
 
 
+def geocode_destinations(origin=[0,0], angles=[0,180], radii = 5 ):
+    destinations = []
+    for angle, radius in zip(angles,radii):
+        lat2,lng2 = select_destination(origin,angle,radius)
+        print (str(lat2) + "," + str(lng2))
+        destinations.append([lat2,lng2])
+    return destinations
+
+
 def get_travel_times(origin=[0,0], destinations=[0,0], travel_method='DRIVING', config_path='/home/' ):
     #read in api_key
     config = configparser.ConfigParser()
@@ -111,114 +121,84 @@ def get_travel_times(origin=[0,0], destinations=[0,0], travel_method='DRIVING', 
     return d
 
 
+def get_bearing(origin='', destination=''):
+    """
+    Calculate the bearing from origin to destination
+    """
+
+    bearing = atan2(sin((destination[1] - origin[1]) * pi / 180) * cos(destination[0] * pi / 180),
+                    cos(origin[0] * pi / 180) * sin(destination[0] * pi / 180) -
+                    sin(origin[0] * pi / 180) * cos(destination[0] * pi / 180) * cos((destination[1] - origin[1]) * pi / 180))
+    bearing = bearing * 180 / pi
+    bearing = (bearing + 360) % 360
+    return bearing
 
 
+def sort_points(origin='', iso=''):
+    """
+    Put the isochrone points in a proper order
+    """
+    bearings = []
+    for row in iso:
+        bearings.append(get_bearing(origin, row))
 
-
-
-
+    points = zip(bearings, iso)
+    sorted_points = sorted(points)
+    sorted_iso = [point[1] for point in sorted_points]
+    return sorted_iso
 
 
 def main():
-    url = build_url(address_str = home_string, config_path = config_path )
-    origin =  geocode_home(url)
-    print (str(origin[0]) + "," + str(origin[1]))
+    iso= []
+    for home in home_string:
+        url = build_url(address_str = home, config_path = config_path )
+        origin =  geocode_home(url)
+        print (str(origin[0]) + "," + str(origin[1]))
 
-    #make inital destination points
-    angles =[360/no_of_angles * i for i in range(no_of_angles)]
+        #make inital destination points
+        angles =[360 / no_of_angles * i for i in range(no_of_angles)]
+        r = [float(travel_time_limit * 10 / 60)  for _ in range(no_of_angles)]  # at 5mph
 
-    r_min = [0]*no_of_angles
-    rad0 = [(travel_time_limit / 60) * 5 for _ in range(no_of_angles)]# at 5mph
-    r_max = [(travel_time_limit / 60) * 75 for _ in range(no_of_angles)]# at 75mph
+        r_min = [0] * no_of_angles
+        r_max = [float(travel_time_limit * 75 / 60)  for _ in range(no_of_angles)]# at 75mph
 
-    locations = ['']* no_of_angles
+        counter = 0
+        change = True
+        while change and counter < 10:
+            print ("Iteration {c}".format(c=counter))
+            change = False
 
-    destinations =[]
+            destinations = geocode_destinations(origin,angles,r)
 
+            jsonFile = get_travel_times(origin,destinations,travel_method,config_path)
+            travel_times = parse_destination_json(jsonFile)
 
-    for i in angles:
-        #select my initial possible points
-        lat2,lng2 = select_destination(origin,i,rad0[i])
-        print (str(lat2) + "," + str(lng2))
-        destinations.append([lat2,lng2])
+            for i in range(no_of_angles):
+               if travel_times[1][i] < travel_time_limit - tolerance :
+                   r_min[i] = r[i]
+                   r[i] = (r_max[i] + r[i]) / 2
+                   change = True
+               elif travel_times[1][i] > travel_time_limit + tolerance:
+                   r_max[i] = r[i]
+                   r[i] = (r_min[i] + r[i]) / 2
+                   change = True
+            counter += 1
 
-        #get travel times
-        jsonFile = get_travel_times(origin,destinations,travel_method,config_path)
-        travel_times = parse_destination_json(jsonFile)
+        destinations = geocode_destinations(origin, angles, r)
+        destinations = sort_points(origin, destinations)
+        iso.append(destinations)
 
-        if (travel_times[1][i] < (travel_time_limit - tolerance)) & (locations[i] != travel_times[0][i]):
-            rad2[i] = (r_max[i] + rad0[i]) / 2
-            r_min[i] = rad0[i]
-        elif (travel_times[1][i] > (travel_time_limit + tolerance)) & (locations[i] != travel_times[0][i]):
-            rad2[i] = (r_min[i] + rad0[i]) / 2
-            r_max[i] = rad0[i]
-        else:
-            rad2[i] = rad0[i]
-            locations[i] = travel_times[0][i]
+    #make output file for rendering
+    mystring = ''
+    for el in iso:
+        for i in el:
+            mystring = mystring + '\n' + str(i) +','
+        mystring = mystring[:-1] +'\n], \n['
+    mystring = 'var bounds = [[' + mystring[:-6] + '\n]];'
 
-
-        rad0 = rad1
-        rad1 = rad2
-
-
-
-
-    '''
-    Make a radius list, one element for each angle,
-    whose elements will update until the isochrone is found
-    '''
-    rad1 = [duration / 12] * number_of_angles  # initial r guess based on 5 mph speed
-    phi1 = [i * (360 / number_of_angles) for i in range(number_of_angles)]
-    data0 = [0] * number_of_angles
-    rad0 = [0] * number_of_angles
-    rmin = [0] * number_of_angles
-    rmax = [1.25 * duration] * number_of_angles  # rmax based on 75 mph speed
-    iso = [[0, 0]] * number_of_angles
-
-    # Counter to ensure we're not getting out of hand
-    j = 0
-
-    # Here's where the binary search starts
-    while sum([a - b for a, b in zip(rad0, rad1)]) != 0:
-        rad2 = [0] * number_of_angles
-        for i in range(number_of_angles):
-            iso[i] = select_destination(origin, phi1[i], rad1[i], access_type, config_path)
-            time.sleep(0.1)
-        url = build_url(origin, iso, access_type, config_path)
-        data = parse_json(url)
-        for i in range(number_of_angles):
-            if (data[1][i] < (duration - tolerance)) & (data0[i] != data[0][i]):
-                rad2[i] = (rmax[i] + rad1[i]) / 2
-                rmin[i] = rad1[i]
-            elif (data[1][i] > (duration + tolerance)) & (data0[i] != data[0][i]):
-                rad2[i] = (rmin[i] + rad1[i]) / 2
-                rmax[i] = rad1[i]
-            else:
-                rad2[i] = rad1[i]
-            data0[i] = data[0][i]
-        rad0 = rad1
-        rad1 = rad2
-        j += 1
-        if j > 30:
-            raise Exception("This is taking too long, so I'm just going to quit.")
-
-    for i in range(number_of_angles):
-        iso[i] = geocode_address(data[0][i], access_type, config_path)
-        time.sleep(0.1)
-
-    #iso = sort_points(origin, iso, access_type, config_path)
-    return iso
-
-
-
-
-
-
-
-
-
-#make inital destination points
-
+    with open(output_path+"/bounds.js", "w") as text_file:
+        text_file.write(mystring)
+#end
 
 
 main

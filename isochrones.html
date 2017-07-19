@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+<!--leaflet links -->
+	<link rel="stylesheet" href="lib/leaflet/leaflet.css" />
+	<script src="lib/leaflet/leaflet.js"></script>
+
+<!-- label links -->
+    <link rel="stylesheet" href="lib/leflet/leaflet.label.css">
+    <script src="lib/leaflet/leaflet.label.js"></script>
+
+<!-- link to data -->
+    <script src="bounds.js"></script>
+
+<!-- map style -->
+    <style type='text/css'>
+        #map { width: 800px; height: 600px; }
+    </style>
+</head>
+
+<body>
+    <div id="map"></div>
+
+    <script>
+
+        var map = L.map('map').setView([53.649,-1.814], 10);
+
+        L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png',{
+                attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
+        }).addTo(map);
+
+        for (var i = 0; bounds.length; i++){
+            reg = new L.polygon( bounds[i], {color: 'blue', weight: 1}).addTo(map); 
+        }
+
+    </script>
+
+</body>
+</html>
