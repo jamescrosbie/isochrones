@@ -6,35 +6,72 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
 
 <!--leaflet links -->
-	<link rel="stylesheet" href="lib/leaflet/leaflet.css" />
+	<link rel="stylesheet" href="lib/leaflet/leaflet.css">
 	<script src="lib/leaflet/leaflet.js"></script>
 
 <!-- label links -->
-    <link rel="stylesheet" href="lib/leflet/leaflet.label.css">
+    <link rel="stylesheet" href="lib/leaflet/leaflet.label.css">
     <script src="lib/leaflet/leaflet.label.js"></script>
 
 <!-- link to data -->
-    <script src="bounds.js"></script>
+    <script src="data/bounds.js"></script>
 
 <!-- map style -->
     <style type='text/css'>
-        #map { width: 800px; height: 600px; }
+        #map { width: 1200px; height: 800px; }
+        #delete, #export {
+            background:black;
+            color:white;
+            padding:10px;
+            border-radius:5px;
+            font-family: 'Helvetica';
+            cursor: pointer;
+            font-size:14px;
+        }
     </style>
 </head>
 
 <body>
+    </br>
+    <a type='button' id='export' type='button' hfef='#' onclick="myExport()">Export Features</a>
+    <a type='button' id='delete' type='button' onclick="myDelete()">Delete Features</a>
+    </br></br>
     <div id="map"></div>
 
     <script>
 
-        var map = L.map('map').setView([53.649,-1.814], 10);
+        function myExport(){
+            // Extract GeoJson from featureGroup
+            var data = featureGroup.toGeoJSON();
+
+            // Stringify the GeoJson
+            var convertedData = 'text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(data));
+
+            // Create export
+            document.getElementById('export').setAttribute('href', 'data:' + convertedData);
+            document.getElementById('export').setAttribute('download','data/jc_data.geojson');
+        }
+
+        function myDelete(){
+            featureGroup.clearLayers();
+        }
+
+        var map = L.map('map').setView([53.680232922438734, -1.805976610476272],10);
+
+//        var map = L.map('map').locate({
+//                setView: true,
+//                maxZoom : 12
+//            });
 
         L.tileLayer('http://{s}.tile.osm.org/{z}/{x}/{y}.png',{
                 attribution: '&copy; <a href="http://osm.org/copyright">OpenStreetMap</a> contributors',
         }).addTo(map);
 
-        for (var i = 0; bounds.length; i++){
-            reg = new L.polygon( bounds[i], {color: 'blue', weight: 1}).addTo(map); 
+        var featureGroup = L.featureGroup().addTo(map);
+
+        for (var i = 0; bounds.length ; i++){
+            var reg = new L.polygon(bounds[i], {color: 'blue', weight: 1});
+            featureGroup.addLayer(reg);
         }
 
     </script>
