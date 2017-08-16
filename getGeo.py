@@ -17,7 +17,7 @@ travel_methods = ['driving', 'bicycling', 'transit', 'walking']
 home_string = ['HD1+1BA']
 travel_method = travel_methods[2]
 travel_time_limit = 40 # mins
-tolerance = 1 #mins
+tolerance = 5 #mins
 
 
 def initialise():
