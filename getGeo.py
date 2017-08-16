@@ -6,6 +6,7 @@ from urllib.request import Request as urlrequest
 from urllib.request import build_opener
 from math import pi, cos, sin, radians, degrees, asin, atan2, ceil
 import os
+import time
 
 
 #set constants
